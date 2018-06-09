@@ -1,11 +1,3 @@
-/*
- *	@autor: Gabino Luis Lazo (i1028058)
- *	@autor: Francisco Pinto Santos (i0918455)
- *	
- *	Primera prActica SSOO II - PARKING
- *      http://avellano.usal.es/~ssooii/PARKING/parking.htm
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -65,20 +57,20 @@
         }                                                                           \
     }while(0)
 
-#define EXIT_ON_FAILURE(returnValue)                                \
-    do{                                                             \
-        if((returnValue) == -1 && errno != ENOMSG){                 \
-            PRINT_ERROR(-1);                                        \
-            freeResources(-1);                                      \
-        }                                                           \
+#define EXIT_ON_FAILURE(returnValue)            \
+    do{                                         \
+        if((returnValue) == -1){                \
+            PRINT_ERROR(-1);                    \
+            freeResources(-1);                  \
+        }                                       \
     }while(0)
 
-#define EXIT_IF_NULL(returnValue)                                   \
-    do{                                                             \
-        if((returnValue) == NULL && errno != ENOMSG){               \
-            PRINT_ERROR(-1);                                        \
-            freeResources(-1);                                      \
-        }                                                           \
+#define EXIT_IF_NULL(returnValue)               \
+    do{                                         \
+        if((returnValue) == NULL){              \
+            PRINT_ERROR(-1);                    \
+            freeResources(-1);                  \
+        }                                       \
     }while(0)
 
 //--------------- GESTION IPCS --------------------------------------------------------
@@ -86,21 +78,14 @@
                            
 #define TIPO_COMANDO                1
 #define TIPO_REQUEST                2
-#define __TIPO_ORDEN(algoritmo)     (20 + algoritmo)
-#define __TIPO_RESERVAS(algoritmo)  (30 + algoritmo)    
-#define __TIPO_OCUPADOS(algoritmo)  (40 + algoritmo)
-//estructura tipos mensajes: (coche*100 (n cifras)) + (tipo msg-algoritmo ( 2 cifras))
-#define TIPO_ORDEN(coche,algoritmo)     ((100*(coche)) + __TIPO_ORDEN(algoritmo))
-#define TIPO_RESERVA(coche,algoritmo)   ((100*(coche)) + __TIPO_RESERVAS(algoritmo))
-#define TIPO_OCUPACION(coche,algoritmo) ((100*(coche)) + __TIPO_OCUPADOS(algoritmo))
+#define TIPO_ORDEN(coche,algoritmo)     ((100*(coche)) + 20 + (algoritmo))
+#define TIPO_CARRETERA(posicion,algoritmo) ( (100*(posicion)) + 50 + (algoritmo)) 
 
 #define WAIT -1
 #define SIGNAL 1
 #define WAIT0 0
 
-#define SEM_START               (PARKING_getNSemAforos())
-#define SEM_WRITE(algoritmo)    (PARKING_getNSemAforos() + 1 +     (algoritmo))
-#define SEM_READ(algoritmo)     (PARKING_getNSemAforos() + 1 + 4 + (algoritmo))
+#define SEM_START (PARKING_getNSemAforos())
 
 //--------------- PROCESOS Y SEÑALES --------------------------------------------------
 #define CREATE_PROCESS(value)    EXIT_ON_FAILURE((value) = fork())
@@ -122,9 +107,9 @@
         semops(SEM_START,WAIT0,0);                                      \
         EXIT_ON_FAILURE(sigfillset(&initialSet));                       \
         EXIT_ON_FAILURE(sigdelset(&initialSet,SIGINT));                 \
-        if(isSIGALARMsensitive){                                        \
-            sigdelset(&initialSet,SIGALRM);                             \
-        }                                                               \
+    if(isSIGALARMsensitive){                                            \
+        sigdelset(&initialSet,SIGALRM);                                 \
+    }                                                                   \
         EXIT_ON_FAILURE(sigprocmask(SIG_SETMASK, &initialSet, NULL));   \
     }while(0)
 
@@ -137,32 +122,6 @@
         EXIT_ON_FAILURE(sigaction(signal,&sigactionSs,NULL));   \
     }while(0)
 
-//--------------- SECCIONES CRITICAS --------------------------------------------------
-#define START_WRITE_CRITICAL_SECTION(coche)                                                                     \
-    do{                                                                                                         \
-        permisoEntradaEscrituraAtomico(SEM_WRITE(PARKING_getAlgoritmo(coche)));                                 \
-        semops(SEM_READ(PARKING_getAlgoritmo(coche)), WAIT0, 0);                                                \
-        LOG("\n%d###%d: He entrado en SemWrite.\n", PARKING_getAlgoritmo(coche), PARKING_getNUmero(coche));     \
-    }while(0)
-
-#define END_WRITE_CRITICAL_SECTION(coche)                                                                      \
-    do{                                                                                                        \
-        semops(SEM_WRITE(PARKING_getAlgoritmo(coche)),WAIT,1);                                                 \
-        LOG("\n%d###%d: He salido en SemWrite.\n", PARKING_getAlgoritmo(coche), PARKING_getNUmero(coche));     \
-    }while(0)
-
-#define START_READ_CRITICAL_SECTION(coche)                                                                              \
-    do{                                                                                                                 \
-        permisoEntradaLecturaAtomico(SEM_WRITE(PARKING_getAlgoritmo(coche)), SEM_READ(PARKING_getAlgoritmo(coche)));    \
-        LOG("\n%d###%d: He entrado en SemRead.\n", PARKING_getAlgoritmo(coche), PARKING_getNUmero(coche));              \
-    }while(0)
-
-#define END_READ_CRITICAL_SECTION(coche)                                                                    \
-    do{                                                                                                     \
-        semops(SEM_READ(PARKING_getAlgoritmo(coche)),WAIT,1);                                               \
-        LOG("\n%d###%d: He salido en SemRead.\n", PARKING_getAlgoritmo(coche), PARKING_getNUmero(coche));   \
-    }while(0)
-
 //--------------- MOVIMIENTOS ---------------------------------------------------------
 #define ESTA_DESAPARCANDO_AVANCE(coche)     (PARKING_getY(coche)  == 1 && PARKING_getY2(coche) == 2)
 #define ESTA_DESAPARCANDO_COMMIT(coche)     (PARKING_getY2(coche) == 1 && PARKING_getY(coche)  == 2)
@@ -173,11 +132,9 @@
 //--------------- MENSAJES ------------------------------------------------------------
 #define USAGE_ERROR_MSG     "./parking <velocidad> <numChoferes> [D] [PA | PD]"
 #define NOT_ENOUGH_CHOF_MSG "NUmero de chOferes insuficiente"
+#define DEBUG_WARNING       "WARNING: entrando al programa sin modo debug\n"    
+#define IPC_WARNING         "\n[%s:%d:%s] WARNING: IPC type %d couldn't be removed.\n"
 
-#define DUMP_PATH_PRIMER    "_dump_primer"
-#define DUMP_PATH_SIGUIENTE "_dump_siguiente"
-#define DUMP_PATH_MEJOR     "_dump_mejor"
-#define DUMP_PATH_PEOR      "_dump_peor"
 
 // Tipos usados internamente por el monticulo binario
 typedef int tipoClave;
@@ -196,41 +153,15 @@ typedef struct
 // Tipos usados en el programa
 typedef unsigned char bool;
 
-/* Estructura de datos de la carretera:
- *
- *      estado: situacion de dicha casilla de la carretera. Puede ser:
- *          - LIBRE: no hay ningun coche ocupando ni reservando la casilla.
- *          - OCUPADO: hay un coche ocupando esa casilla. El identificador
- *                     de dicho coche esta reflejado en el atributo <ocupante>.
- *          - RESERVADO: hay un coche reservando esa casilla, lo que significa
- *                       que sera el siguiente coche en ocuparla una vez este
- *                       libre. El identificador de dicho coche esta reflejado
- *                       en el atributo <reservante>.
- *          - OC_RES: la casilla esta ocupada y reservada.
- * 
- *      ocupante: Identificador del coche que ocupa la casilla.
- *      reservante: Identificador del coche que reserva la casilla.
- */
-typedef enum {LIBRE, OCUPADO, RESERVADO, OC_RES} estado;
-typedef struct{
-    estado e;
-    int ocupante, reservante;
-}Carretera;
-
-//  Estructura de los mensajes de buzon de peticion de permiso para ocupar o reservar.
-typedef struct{
-    long tipo;
-    long idReceptor;
-    long idRemitente;
-    int posXRequerida;
-}msgCarretera;
-
 //  Mensaje que envia un coche justo despues de salir para que salga el siguiente.
 //  Aseguramos el orden correcto de salida.
 struct mensajeOrden{
     long tipo;
 };
 
+struct msgPrueba{
+    long tipo;
+};
 //  Union para inicializar los semaforos de SYSTEM V
 union semun{
     int val;
@@ -256,7 +187,7 @@ void procrear(int nChof, int prioridad);
  *  biblioteca y los guardara en una estructura interna de
  *  acuerdo con el parametro <prioridad>:
  * 
- *      FIFO: los mensajes se pasan directamente desde el buzon.
+ *      FIFO: los mensajes se guardan en una cola FIFO estandar.
  *      P_APARCAR: se guardan en una cola de prioridad para las
  *                 ordenes de aparcamiento.
  *      P_DESAPARCAR: se guardan en una cola de prioridad para las
@@ -284,41 +215,6 @@ void commit(HCoche c);
 void permisoAvance(HCoche c);
 void permisoAvanceCommit(HCoche c);
 
-/*  FUNCIONES DE ESCRITURA EN MEMORIA COMPARTIDA
- *  
- *  Funciones de escritura en la memoria compartida que representa la carretera.
- *  Dichas funciones son seguras ante concurrencia gracias a una zona de exclusion
- *  mutua. Solo habra un proceso escribiendo en la memoria cada vez. 
- */
-void actualizarCarretera(HCoche c, Carretera* carr);
-void reservarCarretera(HCoche c, Carretera* carr, int posicion);
-
-/*  FUNCIONES DE LECTURA EN MEMORIA COMPARTIDA
- * 
- *  Funcion para pedir permiso de ocupacion antes de avanzar, esta protegido de
- *  concurrencia gracias a una zona de exclusion mutua. Pueden leer la 
- *  memoria un numero indeterminado de procesos siempre y cuando no
- *  exista otro dentro de la seccion critica de una funcion de
- *  escritura.
- */
-void pedirPermisoOcupacion(HCoche c, Carretera* carr, int posInicial, int posFinal);
-
-/*  Helpers para gestionar las peticiones de otros coches:
- *
- *      - guardarPeticionOcupacion():   Guarda las peticiones de permiso de ocupacion en una 
- *                                      estructura interna para satisfacerlas en un futuro.
- * 
- *      - recepcionPeticionReserva():   Recibe un mensaje de permiso de reserva de otro
- *                                      coche para satisfacerlo.
- * 
- *      - recepcionPeticionOcupacion(): Idem con un mensaje de permiso de ocupacion. Si
- *                                      no se puede satisfacer se guardan usando la funcion
- *                                      guardarPeticionOcupacion().
- */
-void guardarPeticionOcupacion(HCoche c, msgCarretera msg);
-void recepcionPeticionReserva(HCoche c);
-void recepcionPeticionOcupacion(HCoche c);
-
 /*  Diferentes algoritmos de posicion de aparcamiento en la acera.
  *  Llamados por la biblioteca cada vez que quiere aparcar un
  *  nuevo coche.
@@ -343,13 +239,6 @@ void childHandler(int ss);
  *      - END_READ_CRITICAL_SECTION
  */
 void semops(int pos, int typeOp, int quantity);
-void permisoEntradaEscrituraAtomico(int semWrite);
-void permisoEntradaLecturaAtomico(int semWrite, int semRead);
-
-//  Funciones usadas para depuracion.
-void writeMemorySnapshot(int algoritmo);
-char* getEstadoString(estado e);
-char* getDumpPath(int algoritmo);
 
 //  Funciones de la estructura de datos monticulo binario
 void iniciaMonticulo(Monticulo *m);
@@ -365,20 +254,9 @@ struct _global{
     //  Punteros a las aceras/carreteras de cada algoritmo.
     //  Iniciadas en initMemoria()
     bool* memAceras[4];
-    Carretera* memCarreteras[4];
-
-    //  Ficheros de depuracion donde se escriben snapshots de memoria
-    //  cada vez que un coche actualiza la memoria compartida de
-    //  la carretera.
-    FILE* dump_file[4];
 
     //  Representan manejadores opacos de los recursos IPC.
     int sem, mem, buzon;
-
-    //  Puntero de toda la memoria compartida, usado para iniciar
-    //  memAceras[] y memCarreteras[] y para liberar toda la
-    //  memoria en freeResources()
-    void* memp;
 
     //  pids de todos procesos creados por el padre.
     pid_t mailManager, timer, *chofers;
@@ -386,9 +264,11 @@ struct _global{
     //Valor que indica al programa si estamos en ejecucion con depuracion o no.
     int debug;
 
+    void*memp;
+
     //Valor para saber si es un hijo o el padre
     bool isChild;
-} global;
+}global;
 
 
 int main(int argc, char *argv[]){
@@ -400,7 +280,6 @@ int main(int argc, char *argv[]){
     global.isChild = FALSE;
     global.sem   = -1;
     global.buzon = -1;
-    global.mem   = -1;
     global.mailManager = 0;
     global.timer = 0;
     global.chofers = NULL;
@@ -409,13 +288,6 @@ int main(int argc, char *argv[]){
     EXIT_ON_FAILURE(sigprocmask(SIG_SETMASK, &set, NULL));
 
     registrarArgumentos(argc,argv,&vel,&nChof,&prioridad);
-
-    if(global.debug){
-        EXIT_IF_NULL((global.dump_file[PRIMER_AJUSTE] = fopen(DUMP_PATH_PRIMER, "w")));
-        EXIT_IF_NULL((global.dump_file[SIGUIENTE_AJUSTE] = fopen(DUMP_PATH_SIGUIENTE, "w")));
-        EXIT_IF_NULL((global.dump_file[MEJOR_AJUSTE] = fopen(DUMP_PATH_MEJOR, "w")));
-        EXIT_IF_NULL((global.dump_file[PEOR_AJUSTE] = fopen(DUMP_PATH_PEOR, "w")));
-    }
 
     reservarIpcs(nChof);
 
@@ -430,7 +302,9 @@ int main(int argc, char *argv[]){
 
     PARKING_simulaciOn();
 
-    freeResources(SIGALRM);
+    //  No deberia entrar por aqui, solo en caso de error. En cuyo
+    //  caso libera todos los recursos.
+    freeResources(-1);
 }
 
 void registrarArgumentos(int argc, char *argv[], int*vel, int*nChof, int *prioridad){
@@ -494,20 +368,17 @@ void initSemaforos(int nChof){
     union semun semunion;
 
     //Reserva de semaforos
-    EXIT_ON_FAILURE(global.sem = semget(IPC_PRIVATE,PARKING_getNSemAforos() + 4 + 4 + 1, IPC_CREAT | 0600));
+    EXIT_ON_FAILURE(global.sem = semget(IPC_PRIVATE,PARKING_getNSemAforos() + 1, IPC_CREAT | 0600));
 
     //Valores iniciales  a los semaforos
     semunion.val = nChof+3;
     EXIT_ON_FAILURE(semctl(global.sem, SEM_START,SETVAL, semunion));
-    for(i = SEM_WRITE(PRIMER_AJUSTE); i <= SEM_READ(PEOR_AJUSTE); i++){
-        semunion.val = 0;
-        EXIT_ON_FAILURE(semctl(global.sem, i, SETVAL,semunion));
-    }
 }
 
 void initBuzones(){
-    int i;
+    int i,j;
     struct mensajeOrden initialMsg = {1};
+    struct msgPrueba msg;
 
     //Reserva de los buzones
     EXIT_ON_FAILURE(global.buzon = msgget(IPC_PRIVATE, IPC_CREAT | 0600));
@@ -517,16 +388,21 @@ void initBuzones(){
         initialMsg.tipo = TIPO_ORDEN(1,i);
         EXIT_ON_FAILURE(msgsnd(global.buzon, &initialMsg, MSG_SIZE(initialMsg), 0));
     }
+
+    for(i=0; i<4; i++){
+        for(j=0; j<80; j++){
+            msg.tipo = TIPO_CARRETERA(j,i);
+            msgsnd(global.buzon,&msg,MSG_SIZE(msg),0);
+        }
+    }
 }
 
 void initMemoria(){
     int i;
     bool* memAcerasTemp;
-    Carretera* memCarrTemp;
 
     int tamannoMemAcera = sizeof(bool) * 4 * MAX_LONG_ROAD;
-    int tamannoMemCarretera = sizeof(Carretera) * 4 * MAX_LONG_ROAD;
-    int tamannoMemTotal = PARKING_getTamaNoMemoriaCompartida() + tamannoMemAcera + tamannoMemCarretera;
+    int tamannoMemTotal = PARKING_getTamaNoMemoriaCompartida() + tamannoMemAcera;
 
     //Reserva la memoria compartida y recoge un puntero a la misma
     EXIT_ON_FAILURE(global.mem = shmget(IPC_PRIVATE, tamannoMemTotal, IPC_CREAT | 0600));
@@ -536,11 +412,9 @@ void initMemoria(){
 
     //Iniciamos los arrays de memoria memAceras[] y memCarreteras[] para un acceso facil a la misma dentro del programa 
     memAcerasTemp = (bool*)(global.memp + PARKING_getTamaNoMemoriaCompartida());
-    memCarrTemp = (Carretera*)(global.memp + PARKING_getTamaNoMemoriaCompartida() + tamannoMemAcera);
         
     for(i=PRIMER_AJUSTE; i<=PEOR_AJUSTE; i++){
         global.memAceras[i] = memAcerasTemp + (MAX_LONG_ROAD*i);
-        global.memCarreteras[i] =  memCarrTemp + (MAX_LONG_ROAD*i);
     }
 }
 
@@ -610,7 +484,7 @@ void mailManagerPA(){
     tipoElemento mensjFormatted;
     struct PARKING_mensajeBiblioteca nuevoMsj;
     struct PARKING_mensajeBiblioteca siguienteMsj;
-    int orden = 1; //Para asgurarnos el orden correcto de salida del monticulo binario en aparcamientos
+    static int orden = 1; //Para asgurarnos el orden correcto de salida del monticulo binario en aparcamientos
 
     iniciaMonticulo(&montMsj);
 
@@ -619,7 +493,7 @@ void mailManagerPA(){
         //Recoge todos los mensajes de la biblioteca que pueda y los guarda en monticulo binario
         while(montMsj.tamanno < MAX_MONTICULO-1){
             nuevoMsj.subtipo = 0;
-            EXIT_ON_FAILURE(msgrcv(global.buzon, &nuevoMsj, MSG_SIZE(nuevoMsj), PARKING_MSG, IPC_NOWAIT));
+            msgrcv(global.buzon, &nuevoMsj, MSG_SIZE(nuevoMsj), PARKING_MSG, IPC_NOWAIT);
             if(nuevoMsj.subtipo == 0) break;
 
             nuevoMsj.tipo = TIPO_COMANDO;
@@ -653,7 +527,7 @@ void mailManagerPD(){
     tipoElemento mensjFormatted;
     struct PARKING_mensajeBiblioteca nuevoMsj;
     struct PARKING_mensajeBiblioteca siguienteMsj;
-    int orden = 1; //Para asgurarnos el orden correcto de salida del monticulo binario en aparcamientos
+    static int orden = 1; //Para asgurarnos el orden correcto de salida del monticulo binario en aparcamientos
 
     iniciaMonticulo(&montMsj);
 
@@ -662,7 +536,7 @@ void mailManagerPD(){
         //Recoge todos los mensajes de la biblioteca que pueda y los guarda en monticulo binario
         while(montMsj.tamanno < MAX_MONTICULO-1){
             nuevoMsj.subtipo = 0;
-            EXIT_ON_FAILURE(msgrcv(global.buzon, &nuevoMsj, MSG_SIZE(nuevoMsj), PARKING_MSG, IPC_NOWAIT));
+            msgrcv(global.buzon, &nuevoMsj, MSG_SIZE(nuevoMsj), PARKING_MSG, IPC_NOWAIT);
             if(nuevoMsj.subtipo == 0) break;
 
             nuevoMsj.tipo = TIPO_COMANDO;
@@ -695,29 +569,22 @@ void mailManagerPD(){
 void timerFunction(void){
     struct itimerval it;
 
+    it.it_value.tv_sec = it.it_interval.tv_sec = TIMEOUT_SEC;
+    it.it_value.tv_usec = it.it_interval.tv_usec = 0;
+    EXIT_ON_FAILURE(setitimer(ITIMER_REAL, &it, NULL));
+
     REDEFINE_SIGNAL(SIGALRM, timeIsUp);
     REDEFINE_SIGNAL(SIGINT, childHandler);
 
     READY(TRUE);
 
-    it.it_value.tv_sec = it.it_interval.tv_sec = TIMEOUT_SEC;
-    it.it_value.tv_usec = it.it_interval.tv_usec = 0;
-    EXIT_ON_FAILURE(setitimer(ITIMER_REAL, &it, NULL));
-
-    // La mascara del proceso solo permite responder a señales SIGALRM y SIGINT.
-    // En caso de fallo, si recibe SIGINT antes que SIGALRM pasara a la handler
-    // childHandler() y morirá sin esperar por el segundo pause(). 
-	
-    pause();    // pause() para esperar a SIGALRM
-    pause();	// pause() para esperar a SIGINT
+    pause();    //reutilizamos set ya que tiene la mascara que pondriamos aqui --> ¿poner pause?
 }
 
 //----------- FUNCION DE LOS PROCESOS CHOFERES ----------------------------------------
 void choferFunction(void){
     struct PARKING_mensajeBiblioteca mensj = {0,0,0};
     struct mensajeOrden orden;
-
-    msgCarretera datosPeticiones[MAX_DATOS_COCHE] = {0};
 
     REDEFINE_SIGNAL(SIGINT,childHandler);
 
@@ -733,10 +600,10 @@ void choferFunction(void){
         //Si tiene que aparcar espera por la confirmacion del inmediatamente anterior para salir
         if(mensj.subtipo == PARKING_MSGSUB_APARCAR){
             EXIT_ON_FAILURE(msgrcv(global.buzon, &orden, MSG_SIZE(orden), TIPO_ORDEN(PARKING_getNUmero(mensj.hCoche), PARKING_getAlgoritmo(mensj.hCoche)), 0));
-            PARKING_aparcar(mensj.hCoche, &datosPeticiones, commit, permisoAvance, permisoAvanceCommit);    
+            PARKING_aparcar(mensj.hCoche, NULL, commit, permisoAvance, permisoAvanceCommit);    
         }
         else{
-            PARKING_desaparcar(mensj.hCoche, &datosPeticiones, permisoAvance, permisoAvanceCommit);
+            PARKING_desaparcar(mensj.hCoche, NULL, permisoAvance, permisoAvanceCommit);
         }
     }
 }
@@ -750,267 +617,48 @@ void commit(HCoche c){
 }
 
 void permisoAvance(HCoche c){
-    Carretera* carr = global.memCarreteras[PARKING_getAlgoritmo(c)];
     int posReserva, posOcupacionInicio, posOcupacionFin;
-
+    struct msgPrueba msg;
+    int i;
     // Si esta en carretera y se esta ocultando o si va a aparcar
     // siempre se da al coche permiso de avance.
     if(ESTA_EN_CARRETERA(c) && PARKING_getX(c) > 0){
-        posReserva = PARKING_getX2(c);
-        posOcupacionInicio = posOcupacionFin = PARKING_getX2(c);    // La zona critica de ocupacion es solo la casilla de delante.
+        msgrcv(global.buzon,&msg,MSG_SIZE(msg),TIPO_CARRETERA(PARKING_getX2(c),PARKING_getAlgoritmo(c)),0);
     }
     else if(ESTA_DESAPARCANDO_AVANCE(c)){
-        posReserva = PARKING_getX2(c) + PARKING_getLongitud(c) - 1; // Se reserva la ultima posicion del coche para evitar que
-        posOcupacionInicio = PARKING_getX2(c);                      // otro coche avance dentro de su zona de desaparcamiento.
-        posOcupacionFin = posReserva;                               // La zona critica de ocupacion es toda la longitud del coche
+        for(i = PARKING_getX(c) + PARKING_getLongitud(c)-1; i >= PARKING_getX(c); i--){
+            msgrcv(global.buzon,&msg,MSG_SIZE(msg),TIPO_CARRETERA(i,PARKING_getAlgoritmo(c)),0);
+        }
     }                                                               // en carretera.
     else{
         return;
     }
-
-    reservarCarretera(c, carr, posReserva);
-    pedirPermisoOcupacion(c, carr, posOcupacionInicio, posOcupacionFin);
 }
 
 void permisoAvanceCommit(HCoche c){
-    Carretera*carr = global.memCarreteras[PARKING_getAlgoritmo(c)];
-        
+    int i;
+    struct msgPrueba msg;
+
     //Desreservamos la acera, es zona de exclusion mutua a ojos de la biblioteca gracias a un semaforo interno
     if(ESTA_DESAPARCANDO_COMMIT(c)){
         bool* acera = global.memAceras[PARKING_getAlgoritmo(c)];
         memset(acera + PARKING_getX(c), FALSE, sizeof(bool)*PARKING_getLongitud(c));
     }
-
-    actualizarCarretera(c, carr);
-
-    recepcionPeticionReserva(c);
-    recepcionPeticionOcupacion(c);
-
-}
-
-//----------- FUNCIONES DE ESCRITURA EN MEMORIA COMPARTIDA ----------------------------
-void actualizarCarretera(HCoche c, Carretera* carr){
-    int i;
-
-    if(ESTA_DESAPARCANDO_COMMIT(c)){
-
-        START_WRITE_CRITICAL_SECTION(c);
-
-        for(i=PARKING_getX(c); i < PARKING_getX(c) + PARKING_getLongitud(c); i++){
-            carr[i].e += OCUPADO;
-            carr[i].ocupante = PARKING_getNUmero(c);
-            if(i == PARKING_getX(c)+PARKING_getLongitud(c)-1){
-                carr[i].e -= RESERVADO;
-                carr[i].reservante = 0;
-            }       
-        }
-
-        writeMemorySnapshot(PARKING_getAlgoritmo(c));
-
-        END_WRITE_CRITICAL_SECTION(c);
-    }
     else if(ESTA_APARCANDO_COMMIT(c)){
-
-        START_WRITE_CRITICAL_SECTION(c);
-
         for(i = PARKING_getX(c); i < PARKING_getX(c) + PARKING_getLongitud(c); i++){
-            carr[i].e -= OCUPADO;
-            carr[i].ocupante = 0;
+            msg.tipo = TIPO_CARRETERA(i,PARKING_getAlgoritmo(c));
+            msgsnd(global.buzon,&msg,MSG_SIZE(msg),0);          
         }
-
-        writeMemorySnapshot(PARKING_getAlgoritmo(c));
-
-        END_WRITE_CRITICAL_SECTION(c);
     }
     else if(ESTA_EN_CARRETERA(c)){
-
-        START_WRITE_CRITICAL_SECTION(c);
-        //Si el coche no ha empezado a ocultarse
-        if(PARKING_getX(c) >= 0){
-            LOG("\n%d##%d: Voy a escribir OCUPADO en %d.\n", PARKING_getAlgoritmo(c), PARKING_getNUmero(c), PARKING_getX(c));
-            carr[PARKING_getX(c)].e += (OCUPADO - RESERVADO);
-            carr[PARKING_getX(c)].ocupante = PARKING_getNUmero(c);
-            carr[PARKING_getX(c)].reservante = 0;
-            LOG("\n%d##%d: He escrito OCUPADO en %d.\n", PARKING_getAlgoritmo(c), PARKING_getNUmero(c), PARKING_getX(c));
-        }
-
-        //Si el coche ya ha salido por la izquierda del todo
         if(PARKING_getX(c)+PARKING_getLongitud(c) < MAX_LONG_ROAD){
-            
-            LOG("\n%d##%d: Voy a liberar OCUPADO en %d.\n", PARKING_getAlgoritmo(c), PARKING_getNUmero(c), PARKING_getX(c)+PARKING_getLongitud(c));
-            carr[PARKING_getX(c)+PARKING_getLongitud(c)].e -= OCUPADO;
-            carr[PARKING_getX(c)+PARKING_getLongitud(c)].ocupante = 0;
-            LOG("\n%d##%d: He liberado OCUPADO en %d.\n", PARKING_getAlgoritmo(c), PARKING_getNUmero(c), PARKING_getX(c)+PARKING_getLongitud(c));           
-        }
-
-        writeMemorySnapshot(PARKING_getAlgoritmo(c));
-
-        END_WRITE_CRITICAL_SECTION(c);
-    }
-
-}
-
-void reservarCarretera(HCoche c, Carretera* carr, int posicion){
-    msgCarretera msg;
-
-    START_WRITE_CRITICAL_SECTION(c);
-
-    //Se comprueba si la posicion requerida ya esta reservada, en cuyo caso se envia mensaje a dicho coche para pedir permiso de avance
-    while((carr[posicion].e == RESERVADO || carr[posicion].e == RESERVADO + OCUPADO) && carr[posicion].reservante != PARKING_getNUmero(c)){
-        msg.tipo = TIPO_RESERVA(carr[posicion].reservante,PARKING_getAlgoritmo(c));
-        msg.idReceptor = carr[posicion].reservante;
-        msg.idRemitente = PARKING_getNUmero(c);
-
-        LOG("\n(Carretera - %d#%d): Envio a %ld peticion para RESERVAR.\n", PARKING_getAlgoritmo(c), PARKING_getNUmero(c), msg.idReceptor);
-        EXIT_ON_FAILURE(msgsnd(global.buzon, &msg, MSG_SIZE(msg), 0));   
-
-        END_WRITE_CRITICAL_SECTION(c);
-
-        EXIT_ON_FAILURE(msgrcv(global.buzon, &msg, MSG_SIZE(msg), TIPO_RESERVA(PARKING_getNUmero(c),PARKING_getAlgoritmo(c)), 0));
-        LOG("\n(Carretera - %d#%d): He recibido de %ld confirmacion para RESERVAR.\n", PARKING_getAlgoritmo(c), PARKING_getNUmero(c), msg.idRemitente);
-
-        START_WRITE_CRITICAL_SECTION(c);
-        //Se vuelve a comprobar que la zona esta sin reservar ya que se ha estado durante la espera del permiso fuera de seccion critica
-    }
-        
-    carr[posicion].e += RESERVADO;
-    carr[posicion].reservante = PARKING_getNUmero(c);
-
-    writeMemorySnapshot(PARKING_getAlgoritmo(c));
-
-    END_WRITE_CRITICAL_SECTION(c);  
-}
-
-//----------- FUNCIONES DE LECTURA EN MEMORIA COMPARTIDA ------------------------------
-void pedirPermisoOcupacion(HCoche c, Carretera* carr, int posInicial, int posFinal){
-    msgCarretera msg;
-    long idPeticionAvance;
-    int i;
-
-    START_READ_CRITICAL_SECTION(c);
-
-    //  Comprobamos si dentro de las posiciones criticas a ocupar hay algun coche.
-    //  De derecha a izquierda porque el trafico va en esa direccion.
-    //  Si encontramos alguno le enviamos la peticion de ocupacion y esperamos
-    //  a que nos de el permiso para ocupar.
-    for(i = posFinal; i >= posInicial; i--){
-        if(carr[i].e == OCUPADO || carr[i].e == RESERVADO + OCUPADO)
-            break;
-    }
-
-    if(i >= posInicial){
-        msg.idReceptor = carr[i].ocupante;
-        msg.tipo = TIPO_OCUPACION(msg.idReceptor,PARKING_getAlgoritmo(c));
-        idPeticionAvance = msg.idReceptor;
-        msg.idRemitente = PARKING_getNUmero(c);
-        msg.posXRequerida = posInicial;
-
-        LOG("\n(Carretera - %d#%d): Envio a %ld peticion para OCUPAR.\n", PARKING_getAlgoritmo(c), PARKING_getNUmero(c), msg.idReceptor);
-        EXIT_ON_FAILURE(msgsnd(global.buzon, &msg, MSG_SIZE(msg), 0));
-
-        END_READ_CRITICAL_SECTION(c);
-
-        // Es posible que mientras esperemos por ocupacion otro coche nos pida permiso. En ese caso guardamos la peticion
-        // en la entructura interna para satisfacerla cuando podamos y volvemos a esperar al mensaje de permiso deseado.
-        while(TRUE){
-            LOG("\n(Carretera - %d#%d): Espero a %ld para OCUPAR.\n", PARKING_getAlgoritmo(c), PARKING_getNUmero(c), msg.idReceptor);
-
-            EXIT_ON_FAILURE(msgrcv(global.buzon, &msg, MSG_SIZE(msg), TIPO_OCUPACION(PARKING_getNUmero(c),PARKING_getAlgoritmo(c)), 0));
-
-            if(msg.idRemitente == idPeticionAvance){
-                LOG("\n(Carretera - %d#%d): He recibido de %ld confirmacion para OCUPAR.\n", PARKING_getAlgoritmo(c), PARKING_getNUmero(c), msg.idRemitente);
-                break;
-            }
-            else{
-                guardarPeticionOcupacion(c, msg);
-            }
-        }
-    }
-    else{
-        END_READ_CRITICAL_SECTION(c);
-    }   
-}
-
-//----------- FUNCIONES DE GESTION DE PETICIONES AJENAS -------------------------------
-void recepcionPeticionReserva(HCoche c){
-
-    if(ESTA_APARCANDO_COMMIT(c))
-        return;
-
-    msgCarretera msg = {0, 0, 0, 0};
-
-    EXIT_ON_FAILURE(msgrcv(global.buzon, &msg, MSG_SIZE(msg), TIPO_RESERVA(PARKING_getNUmero(c),PARKING_getAlgoritmo(c)), IPC_NOWAIT));
-    if(msg.idReceptor != 0){
-        LOG("\n(%d#%d): Envio OK a %ld buzon RESERVAS.\n", PARKING_getAlgoritmo(c), PARKING_getNUmero(c), msg.idRemitente);
-        msg.tipo = TIPO_RESERVA(msg.idRemitente, PARKING_getAlgoritmo(c));
-        msg.idReceptor= msg.idRemitente;
-        msg.idRemitente = PARKING_getNUmero(c);
-        EXIT_ON_FAILURE(msgsnd(global.buzon, &msg, MSG_SIZE(msg), 0));
-    }
-}
-
-void recepcionPeticionOcupacion(HCoche c){
-
-    if(ESTA_DESAPARCANDO_COMMIT(c))
-        return;
-
-    msgCarretera msg = {0, 0, 0, 0};
-    msgCarretera* datosPeticiones = PARKING_getDatos(c);
-    int posicionDesocupada = PARKING_getX(c) + PARKING_getLongitud(c);
-    int i;
-
-    //  Primero miramos si tenemos peticiones guardadas y si podemos atenderlas inmediatamente.
-    for(i = 0; i < MAX_DATOS_COCHE; i++){
-        if(datosPeticiones[i].idRemitente != 0 && (ESTA_APARCANDO_COMMIT(c) || datosPeticiones[i].posXRequerida == posicionDesocupada)){
-            msg = datosPeticiones[i];
-
-            msg.tipo = TIPO_OCUPACION(msg.idRemitente, PARKING_getAlgoritmo(c));
-            msg.idReceptor = msg.idRemitente;
-            msg.idRemitente = PARKING_getNUmero(c);
-
-            LOG("\n(Carretera - %d#%d): Atiendo peticion de %ld guardada en datosCoche para OCUPAR\n", PARKING_getAlgoritmo(c), PARKING_getNUmero(c), msg.idReceptor);
-
-            EXIT_ON_FAILURE(msgsnd(global.buzon, &msg, MSG_SIZE(msg), 0));
-            memset(&datosPeticiones[i], 0, sizeof(datosPeticiones[i]));
-            memset(&msg, 0, sizeof(msg));
+            msg.tipo = TIPO_CARRETERA(PARKING_getX(c)+PARKING_getLongitud(c),PARKING_getAlgoritmo(c));
+            msgsnd(global.buzon,&msg,MSG_SIZE(msg),0);            
         }
     }
 
-    //  Recoge todos los mensajes del buzon de peticiones de ocupacion dirigidas a el mismo.
-    //  Las satisface inmediatamente si puede o las guarda en su estructura de datos interna.
-    EXIT_ON_FAILURE(msgrcv(global.buzon, &msg, MSG_SIZE(msg), TIPO_OCUPACION(PARKING_getNUmero(c),PARKING_getAlgoritmo(c)), IPC_NOWAIT));
-    while(msg.idReceptor != 0){
-        if(ESTA_APARCANDO_COMMIT(c) || (msg.posXRequerida == posicionDesocupada)){  
-            LOG("\n(Carretera - %d#%d): Envio OK a %ld buzon OCUPACION.\n", PARKING_getAlgoritmo(c), PARKING_getNUmero(c), msg.idRemitente);
-            msg.tipo = TIPO_OCUPACION(msg.idRemitente,PARKING_getAlgoritmo(c));
-            msg.idReceptor = msg.idRemitente;
-            msg.idRemitente = PARKING_getNUmero(c);
-
-            LOG("\n%d#%d): msg: idReceptor=%ld, idRemitente=%ld, posXRequerida=%d\n", PARKING_getAlgoritmo(c), PARKING_getNUmero(c), msg.idReceptor, msg.idRemitente, msg.posXRequerida);
-            EXIT_ON_FAILURE(msgsnd(global.buzon, &msg, MSG_SIZE(msg), 0));
-        }
-        else{
-            LOG("\n%d#%d: Guardo Peticion Ocupacion en recepcion() com msg: idReceptor: %ld, idRemitente: %ld, posXRequerida: %d\n", PARKING_getAlgoritmo(c), PARKING_getNUmero(c), msg.idReceptor, msg.idRemitente, msg.posXRequerida);
-            guardarPeticionOcupacion(c, msg);
-        }
-        memset(&msg, 0, sizeof(msg));
-        EXIT_ON_FAILURE(msgrcv(global.buzon, &msg, MSG_SIZE(msg), TIPO_OCUPACION(PARKING_getNUmero(c),PARKING_getAlgoritmo(c)), IPC_NOWAIT));
-    }
 }
 
-void guardarPeticionOcupacion(HCoche c, msgCarretera msg){
-    msgCarretera* datosPeticiones = PARKING_getDatos(c);
-
-    int i = 0;
-    while(datosPeticiones[i].idReceptor != 0 && i < MAX_DATOS_COCHE){
-        i++;
-    }
-    if(i == MAX_DATOS_COCHE){
-        EXIT("\n(Carretera - %d#%d): He recibido demasiadas peticiones de OCUPAR. Abortando...\n", PARKING_getAlgoritmo(c), PARKING_getNUmero(c));
-    }
-    datosPeticiones[i] = msg;
-    LOG("\n(Carretera - %d#%d): He recibido de %ld de peticion de OCUPAR y guardo en datosCoche[%d].\n", PARKING_getAlgoritmo(c), PARKING_getNUmero(c), msg.idRemitente, i);
-}
 
 //----------- FUNCIONES DE ALGORITMOS DE POSICION DE APARCAMIENTO ---------------------
 int primerAjuste(HCoche c){
@@ -1147,19 +795,28 @@ void freeResources(int ss){
     //  Si el hijo entra en esta funcion es a causa de un error.
     //  Envia SINGINT al padre y muere con codigo de error. 
     if(global.isChild == TRUE){
-        PRINT_ERROR(kill(SIGALRM,getppid()));
-        pause();
+        PRINT_ERROR(kill(SIGINT,getppid()));
+        exit(EXIT_FAILURE);
     }
 
     int i;
 
-   if(ss == SIGINT){
+    if(ss == SIGINT)
+        PARKING_fin(1);
+    else if(ss == -1)
+        PARKING_fin(0);
+
+    if(ss == SIGALRM){
+        PRINT_ERROR(waitpid(global.timer,NULL,0));
+        KILL_PROCESS(global.mailManager,SIGINT);
+        for(i=0; global.chofers[i] != 0; i++){
+            KILL_PROCESS(global.chofers[i],SIGINT);
+        }
+    }else if(ss == SIGINT){
         PRINT_ERROR(waitpid(global.timer,NULL,0));
         PRINT_ERROR(waitpid(global.mailManager,NULL,0));
-        if(global.chofers != NULL){
-            for(i=0; global.chofers[i] != 0; i++){
-                PRINT_ERROR(waitpid(global.chofers[i],NULL,0));
-            }
+        for(i=0; global.chofers[i] != 0; i++){
+            PRINT_ERROR(waitpid(global.chofers[i],NULL,0));
         }
     }else{
         KILL_PROCESS(global.timer,SIGINT);
@@ -1181,17 +838,14 @@ void freeResources(int ss){
         PRINT_ERROR(shmdt(global.memp));
     if(-1 != global.mem)
         PRINT_ERROR(shmctl(global.mem,IPC_RMID,NULL));
-        
-    if(global.debug){
-        for(i = PRIMER_AJUSTE; i <= PEOR_AJUSTE; i++)
-            fclose(global.dump_file[i]);
-    }
 
     exit(EXIT_SUCCESS);
 }
 
 void timeIsUp(int ss){
     PARKING_fin(1);
+    EXIT_ON_FAILURE(kill(getppid(),SIGALRM));
+    exit(EXIT_SUCCESS);
 }
 
 void childHandler(int ss){
@@ -1215,83 +869,6 @@ void semops(int pos, int typeOp, int quantity){
         
     EXIT_ON_FAILURE(semop(global.sem,&sops,1));
 }
-
-void permisoEntradaEscrituraAtomico(int semWrite){
-    struct sembuf sops[2];
-
-    sops[0].sem_op = WAIT0;
-    sops[0].sem_num = semWrite;
-    sops[0].sem_flg = 0;
-
-    sops[1].sem_op = SIGNAL;
-    sops[1].sem_num = semWrite;
-    sops[1].sem_flg = 0;
-        
-    EXIT_ON_FAILURE(semop(global.sem,sops,2));
-}
-
-void permisoEntradaLecturaAtomico(int semWrite, int semRead){
-    struct sembuf sops[2];
-
-    sops[0].sem_op = WAIT0;
-    sops[0].sem_num = semWrite;
-    sops[0].sem_flg = 0;
-
-    sops[1].sem_op = SIGNAL;
-    sops[1].sem_num = semRead;
-    sops[1].sem_flg = 0;
-        
-    EXIT_ON_FAILURE(semop(global.sem,sops,2));
-}
-
-//----------- FUNCIONES DE DEPURACION -------------------------------------------------
-void writeMemorySnapshot(int algoritmo){
-
-        if(!global.debug)
-            return;
-
-        int i;
-        Carretera carretera;
-
-        for(i = 0; i < MAX_LONG_ROAD; i++){
-            carretera.e = global.memCarreteras[algoritmo][i].e;
-            fprintf(global.dump_file[algoritmo], "%2d:%s ", i, getEstadoString(carretera.e));
-        }
-        fprintf(global.dump_file[algoritmo], "\n");
-
-        for(i = 0; i < MAX_LONG_ROAD; i++){
-            carretera.ocupante = global.memCarreteras[algoritmo][i].ocupante;
-            fprintf(global.dump_file[algoritmo], "%7zu ", carretera.ocupante);
-        }
-        fprintf(global.dump_file[algoritmo], "\n");
-
-        for(i = 0; i < MAX_LONG_ROAD; i++){
-            carretera.reservante = global.memCarreteras[algoritmo][i].reservante;
-            fprintf(global.dump_file[algoritmo], "%7zu ", carretera.reservante);
-        }
-        fprintf(global.dump_file[algoritmo], "\n\n");
-
-        fflush(global.dump_file[algoritmo]);
-}
-
-char* getEstadoString(estado e){
-        switch(e){
-            case LIBRE:     return "LIBR";
-            case OCUPADO:   return "OCUP";
-            case RESERVADO: return "RESE";
-            case OC_RES:    return "OCRE";
-        }
-}
-
-char* getDumpPath(int algoritmo){
-        switch(algoritmo){
-            case PRIMER_AJUSTE:     return DUMP_PATH_PRIMER;
-            case SIGUIENTE_AJUSTE:  return DUMP_PATH_SIGUIENTE;
-            case MEJOR_AJUSTE:      return DUMP_PATH_MEJOR;
-            case PEOR_AJUSTE:       return DUMP_PATH_PEOR;
-        }
-}
-
 //----------- ESTRUCTURA DE DATOS MONTICULO BINARIO -----------------------------------
 void iniciaMonticulo(Monticulo *m)
 {
